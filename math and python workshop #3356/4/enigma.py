@@ -85,8 +85,31 @@ def create_switching_list(pairs):
     return switching_list
 
 
-def rotor_rotation():
-    return 0
+def rotor_rotation(rot_list, shift_list, len_alphabet):
+    rot_step = [0] * len(shift_list)
+    rot_step[0] += 1
+
+    if shift_list[0]+1 in SHIFTS[rot_list[0]]:
+        rot_step[1] += 1
+
+    for index, rot in enumerate(rot_list[1:-1]):
+        if shift_list[index+1] + 1 in SHIFTS[rot]:
+            rot_step[index+1] += 1
+            rot_step[index+2] += 1
+
+    shift_list = [(x + y)%len_alphabet for x, y in zip(shift_list, rot_step)]
+    return shift_list
+
+
+def use_rotors(symbol, rot_list, shift_list, reverse):
+    last_shift = 0
+    for i in range(len(rot_list)):
+        shift = shift_list[i] - last_shift
+        symbol = shift_symbol(symbol, shift)
+        last_shift = shift_list[i]
+        symbol = rotor(symbol, rot_list[i], reverse)  
+    
+    return symbol, last_shift
 
 
 def enigma(text, ref, rot1, shift1, rot2, shift2, rot3, shift3, pairs=""):
@@ -97,55 +120,27 @@ def enigma(text, ref, rot1, shift1, rot2, shift2, rot3, shift3, pairs=""):
     text = ''.join([i for i in text.upper() if i.isalpha()])
     rot_list = [rot3, rot2, rot1]
     shift_list = [shift3, shift2, shift1]
-    last_shift = 0
     len_alphabet = len(REFLECTORS[0])
     answer = ''
 
     for symbol in text:
         symbol = switching_list[1][switching_list[0].index(symbol)]
-
-        rot_step = [0] * len(shift_list)
-        rot_step[0] += 1
-
-        if shift_list[0]+1 in SHIFTS[rot_list[0]]:
-            rot_step[1] += 1
-
-        for index, rot in enumerate(rot_list[1:-1]):
-            if shift_list[index+1] + 1 in SHIFTS[rot]:
-                rot_step[index+1] += 1
-                rot_step[index+2] += 1
-
-        shift_list = [(x + y)%len_alphabet for x, y in zip(shift_list, rot_step)]
-        print(shift_list)
-
-        for i in range(len(rot_list)):
-            shift = shift_list[i] - last_shift
-            symbol = shift_symbol(symbol, shift)
-            last_shift = shift_list[i]
-            symbol = rotor(symbol, rot_list[i], False)
-
+        shift_list = rotor_rotation(rot_list, shift_list, len_alphabet)
+        symbol, last_shift = use_rotors(symbol, rot_list, shift_list, False)
         symbol = shift_symbol(symbol, -last_shift)
-        last_shift = 0
         symbol = reflector(symbol, ref)
 
         rot_list.reverse()
         shift_list.reverse()
 
-        for i in range(len(rot_list)):
-            shift = shift_list[i] - last_shift
-            symbol = shift_symbol(symbol, shift)
-            last_shift = shift_list[i]
-            symbol = rotor(symbol, rot_list[i], True)
-
+        symbol, last_shift = use_rotors(symbol, rot_list, shift_list, True)
         symbol = shift_symbol(symbol, -last_shift)
-        last_shift = 0
         symbol = switching_list[1][switching_list[0].index(symbol)]
 
         answer += symbol
 
         rot_list.reverse()
         shift_list.reverse()
-
 
     return answer
 
