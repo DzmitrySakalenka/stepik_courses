@@ -1,0 +1,87 @@
+def create_report(name):
+    import os
+    import re
+
+    matrix = [[],[],[]]
+
+    for i in range(1,10):
+        with open('output/{}.log'.format(i), 'r') as input_f:
+            target = input_f.readlines()
+            target = target[10]
+            target = re.findall(r'\d+', target)
+            target = list(map(int, target))
+            target = str(target[0])
+            if 1 <= i <= 3:
+                matrix[0].append(target)
+            elif 4 <= i <= 6:
+                if i == 5:
+                    matrix[1].append("None")
+                else:
+                    matrix[1].append(target)
+            else:
+                if i == 8 or i == 9:
+                    matrix[2].append("None")
+                else:
+                    matrix[2].append(target)
+
+    with open('output/reports/{}'.format(name), 'w') as report:
+        for row in matrix:
+            row[2] = row[2] + '\n'
+            report.writelines('\t'.join(row))
+        '''
+        for i, row in enumerate(matrix):
+            if i != len(matrix) - 1:
+                row[2] = row[2] + '\n'
+            report.writelines('\t'.join(row))
+        '''
+
+    os.system("rm data/22.dict data/22.fa.fai")
+    os.system("rm output/1.log output/2.log output/3.log output/4.log output/5.log output/6.log output/7.log output/8.log output/9.log")
+    os.system("rm input/{}.bam.bai".format(name))
+    os.system("rm output/*")
+
+IDS, = glob_wildcards('input/{file, \d+}.bam')
+rule all:
+    input: expand('output/reports/{file}', file=IDS)
+    output: touch('.status')
+
+rule one:
+    input:
+        'data/22.fa',
+        'input/{file}.bam',
+    output:
+        'output/reports/{file}'
+
+    run:
+        shell("touch {output[0]}")
+        shell("samtools faidx {input[0]}")
+        shell("java -jar $PICARD CreateSequenceDictionary R={input[0]} O=data/22.dict")
+        shell("samtools index {input[1]}")
+        shell("java -jar $GATK -R {input[0]} -T HaplotypeCaller -I {input[1]} -o output/h.vcf")
+        shell("freebayes -f {input[0]} {input[1]} > output/f.vcf")
+        shell("samtools mpileup -uf {input[0]} {input[1]} | bcftools view -vcg - > output/s.vcf")
+        shell("bgzip output/h.vcf")
+        shell("bgzip output/f.vcf")
+        shell("bgzip output/s.vcf")
+        shell("tabix -p vcf output/h.vcf.gz")
+        shell("tabix -p vcf output/f.vcf.gz")
+        shell("tabix -p vcf output/s.vcf.gz")
+        shell("vcf-isec -f -n +2 output/f.vcf.gz output/f.vcf.gz | bgzip -c > 'output/f_f.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/f.vcf.gz output/h.vcf.gz | bgzip -c > 'output/f_h.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/f.vcf.gz output/s.vcf.gz | bgzip -c > 'output/f_s.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/h.vcf.gz output/h.vcf.gz | bgzip -c > 'output/h_h.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/h.vcf.gz output/f.vcf.gz | bgzip -c > 'output/h_f.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/h.vcf.gz output/s.vcf.gz | bgzip -c > 'output/h_s.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/s.vcf.gz output/s.vcf.gz | bgzip -c > 'output/s_s.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/s.vcf.gz output/f.vcf.gz | bgzip -c > 'output/s_f.vcf.gz'")
+        shell("vcf-isec -f -n +2 output/s.vcf.gz output/h.vcf.gz | bgzip -c > 'output/s_h.vcf.gz'")
+        shell("vcftools --gzvcf output/f_f.vcf.gz --out output/1")
+        shell("vcftools --gzvcf output/f_h.vcf.gz --out output/2")
+        shell("vcftools --gzvcf output/f_s.vcf.gz --out output/3")
+        shell("vcftools --gzvcf output/h_h.vcf.gz --out output/4")
+        shell("vcftools --gzvcf output/h_f.vcf.gz --out output/5")
+        shell("vcftools --gzvcf output/h_s.vcf.gz --out output/6")
+        shell("vcftools --gzvcf output/s_s.vcf.gz --out output/7")
+        shell("vcftools --gzvcf output/s_f.vcf.gz --out output/8")
+        shell("vcftools --gzvcf output/s_h.vcf.gz --out output/9")
+        create_report(wildcards.file)

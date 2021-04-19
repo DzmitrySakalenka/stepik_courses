@@ -1,0 +1,16 @@
+IDS, = glob_wildcards("input/{id, \w.+}")
+
+rule all:
+    input: expand("output/{id}", id=IDS)
+
+rule:
+    input:  "input/{id}"
+    output: "output/{id}"
+    run:
+        from collections import Counter
+        for i in IDS:
+            cnt = Counter()
+            with open("input/" + i) as f, open("output/" + i, 'w') as w:
+                for c in f.read().strip():
+                    cnt[c] += 1
+                w.write("\n".join(["{}: {}".format(itm, val) for itm, val in sorted(cnt.items())]))
