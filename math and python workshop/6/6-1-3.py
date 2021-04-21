@@ -1,7 +1,7 @@
 import numpy as np
 np.random.seed(42)
 
-'''
+
 Z = np.eye(int(input()))
 print(Z)
 
@@ -52,7 +52,7 @@ Z[::2, ::2] = 0
 Z[1::2,1::2] = 0
 
 print(Z)
-'''
+
 
 i = 5
 Z = np.array([[0, 1,  2,  3],
